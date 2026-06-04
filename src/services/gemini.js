@@ -124,3 +124,69 @@ export async function generateWeeklyDigest(recentNotes) {
     return 'Could not generate digest.';
   }
 }
+
+/**
+ * Fetch metadata + readable content from a URL using a CORS proxy.
+ * Returns { title, description, content } — all strings, possibly empty.
+ */
+export async function fetchUrlContent(url) {
+  try {
+    // Use allorigins CORS proxy to fetch raw HTML
+    const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+    const res = await fetch(proxy, { signal: AbortSignal.timeout(12000) });
+    if (!res.ok) throw new Error(`Proxy error ${res.status}`);
+    const json = await res.json();
+    const html = json.contents || '';
+
+    // Parse with DOMParser
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+
+    // Extract title
+    const title =
+      doc.querySelector('meta[property="og:title"]')?.getAttribute('content') ||
+      doc.querySelector('title')?.textContent?.trim() ||
+      '';
+
+    // Extract description
+    const description =
+      doc.querySelector('meta[property="og:description"]')?.getAttribute('content') ||
+      doc.querySelector('meta[name="description"]')?.getAttribute('content') ||
+      '';
+
+    // Extract body text — prefer article/main, fall back to body
+    const articleEl = doc.querySelector('article') || doc.querySelector('main') || doc.body;
+    // Remove scripts, styles, nav, footer
+    ['script', 'style', 'nav', 'footer', 'header', 'aside', 'noscript'].forEach(tag => {
+      articleEl?.querySelectorAll(tag).forEach(el => el.remove());
+    });
+    const bodyText = (articleEl?.innerText || articleEl?.textContent || '')
+      .replace(/\s{3,}/g, '\n\n')
+      .trim()
+      .slice(0, 6000);
+
+    return { title, description, content: bodyText };
+  } catch (err) {
+    console.warn('fetchUrlContent failed:', err.message);
+    return { title: '', description: '', content: '' };
+  }
+}
+
+/**
+ * Generate a flashcard question from note content for spaced repetition.
+ */
+export async function generateFlashcard(note) {
+  const prompt = `Based on this note, create ONE clear flashcard question that tests understanding of the most important concept. Return ONLY valid JSON:
+{"question": "...", "hint": "one short hint"}
+Note title: ${note.title}
+Note summary: ${note.summary || ''}
+Note content (excerpt): ${note.content?.slice(0, 1000) || ''}`;
+
+  try {
+    const raw = await callAI(prompt);
+    const cleaned = raw.replace(/\`\`\`json|\`\`\`/g, '').trim();
+    return JSON.parse(cleaned);
+  } catch {
+    return { question: `What is the main idea of "${note.title}"?`, hint: note.summary || '' };
+  }
+}

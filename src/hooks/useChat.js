@@ -1,6 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { chatWithNotes } from '../services/gemini';
 import { saveChat, getUserChats } from '../services/firestore';
+import { hybridSearch, isSemanticSearchAvailable } from '../services/embeddings';
 import useStore from '../store/useStore';
 
 export function useChat(userId) {
@@ -9,6 +10,9 @@ export function useChat(userId) {
   const [chatHistory, setChatHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Track the current session's Firestore doc ID to avoid creating duplicates
+  const currentChatIdRef = useRef(null);
 
   const fetchChats = useCallback(async () => {
     if (!userId) return;
@@ -21,19 +25,29 @@ export function useChat(userId) {
   }, [userId]);
 
   const loadChat = useCallback((chat) => {
+    currentChatIdRef.current = chat.id;
     setMessages(chat.messages || []);
   }, []);
 
   const startNewChat = useCallback(() => {
+    currentChatIdRef.current = null;
     setMessages([]);
   }, []);
 
-  const findRelevantNotes = useCallback((query) => {
+  const findRelevantNotes = useCallback(async (query) => {
     if (!notes.length) return [];
 
+    // Use hybrid semantic+keyword search when HF key is available,
+    // fall back to pure keyword otherwise
+    if (isSemanticSearchAvailable()) {
+      const results = await hybridSearch(query, notes, 4);
+      if (results.length > 0) return results;
+    }
+
+    // Pure keyword fallback
     const q = query.toLowerCase();
-    // Split into individual words, filter out common stop words
-    const stopWords = new Set(['the','a','an','is','are','was','were','be','been','being',
+    const stopWords = new Set([
+      'the','a','an','is','are','was','were','be','been','being',
       'have','has','had','do','does','did','will','would','could','should','may','might',
       'shall','can','need','dare','used','ought','about','from','with','tell','me','my',
       'what','who','where','when','how','why','i','in','on','at','to','of','and','or',
@@ -41,29 +55,21 @@ export function useChat(userId) {
     const words = q.split(/\s+/).filter(w => w.length > 2 && !stopWords.has(w));
 
     const scored = notes.map(note => {
-      const titleLower   = note.title?.toLowerCase()   || '';
-      const contentLower = note.content?.toLowerCase() || '';
-      const summaryLower = note.summary?.toLowerCase() || '';
-      const tagsLower    = note.tags?.map(t => t.toLowerCase()).join(' ') || '';
-      const typeLower    = note.type?.toLowerCase() || '';
-
+      const tl = note.title?.toLowerCase()   || '';
+      const cl = note.content?.toLowerCase() || '';
+      const sl = note.summary?.toLowerCase() || '';
+      const gl = note.tags?.map(t => t.toLowerCase()).join(' ') || '';
       let score = 0;
-
-      // Full query match (highest weight)
-      if (titleLower.includes(q))   score += 10;
-      if (tagsLower.includes(q))    score += 8;
-      if (summaryLower.includes(q)) score += 5;
-      if (contentLower.includes(q)) score += 4;
-
-      // Individual word matches
-      words.forEach(word => {
-        if (titleLower.includes(word))   score += 6;
-        if (tagsLower.includes(word))    score += 4;
-        if (summaryLower.includes(word)) score += 3;
-        if (contentLower.includes(word)) score += 2;
-        if (typeLower.includes(word))    score += 3; // matches 'pdf', 'url', 'text'
+      if (tl.includes(q)) score += 10;
+      if (gl.includes(q)) score += 8;
+      if (sl.includes(q)) score += 5;
+      if (cl.includes(q)) score += 4;
+      words.forEach(w => {
+        if (tl.includes(w)) score += 6;
+        if (gl.includes(w)) score += 4;
+        if (sl.includes(w)) score += 3;
+        if (cl.includes(w)) score += 2;
       });
-
       return { note, score };
     });
 
@@ -82,15 +88,18 @@ export function useChat(userId) {
     setError(null);
 
     try {
-      const relevantNotes = findRelevantNotes(userMessage);
+      const relevantNotes = await findRelevantNotes(userMessage);
       const reply = await chatWithNotes(userMessage, relevantNotes, updatedMessages);
       const assistantMsg = { role: 'assistant', content: reply, timestamp: new Date().toISOString() };
       const finalMessages = [...updatedMessages, assistantMsg];
       setMessages(finalMessages);
 
-      // Auto-save after first exchange
+      // Save/update — upsert using the existing session ID to avoid duplicate docs
       if (finalMessages.length >= 2) {
-        await saveChat(userId, finalMessages);
+        const savedId = await saveChat(userId, finalMessages, currentChatIdRef.current);
+        if (!currentChatIdRef.current) {
+          currentChatIdRef.current = savedId;
+        }
         await fetchChats();
       }
     } catch (err) {
@@ -98,7 +107,7 @@ export function useChat(userId) {
       const errMsg = {
         role: 'assistant',
         content: err.message?.includes('401') || err.message?.includes('403') || err.message?.includes('UNAUTHENTICATED')
-          ? '⚠️ Gemini API key is invalid or expired. Please update VITE_GEMINI_API_KEY in your .env file with a valid AIzaSy... key from https://aistudio.google.com/app/apikey'
+          ? '⚠️ API key is invalid or expired. Please update VITE_GROQ_API_KEY in your .env file.'
           : 'Sorry, I encountered an error. Please try again.',
         timestamp: new Date().toISOString(),
       };
@@ -108,5 +117,15 @@ export function useChat(userId) {
     }
   }, [messages, userId, findRelevantNotes, fetchChats]);
 
-  return { messages, chatHistory, loading, error, sendMessage, fetchChats, loadChat, startNewChat };
+  return {
+    messages,
+    chatHistory,
+    loading,
+    error,
+    sendMessage,
+    fetchChats,
+    loadChat,
+    startNewChat,
+    currentChatId: currentChatIdRef.current,
+  };
 }

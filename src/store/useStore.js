@@ -5,6 +5,10 @@ const useStore = create((set) => ({
   notes: [],
   setNotes: (notes) => set({ notes }),
 
+  // Collections — stored globally so NoteCard can read them without a prop
+  collections: [],
+  setCollections: (collections) => set({ collections }),
+
   // Toast
   toast: null,
   showToast: (message, type = 'success') => {

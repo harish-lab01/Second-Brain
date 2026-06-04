@@ -1,5 +1,6 @@
 import NoteCard from './NoteCard';
 import EmptyState from '../ui/EmptyState';
+import { Plus } from 'lucide-react';
 
 export default function NoteList({ notes, onAddNote }) {
   if (!notes.length) {
@@ -10,8 +11,9 @@ export default function NoteList({ notes, onAddNote }) {
         action={
           <button
             onClick={onAddNote}
-            className="px-5 py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary-600 transition-colors"
+            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-primary to-primary-700 text-white rounded-xl text-sm font-semibold hover:from-primary-600 hover:to-primary-800 transition-all shadow-glow-sm"
           >
+            <Plus className="w-4 h-4" />
             Add your first note
           </button>
         }
