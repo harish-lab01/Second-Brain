@@ -13,7 +13,8 @@ export default function Layout() {
   // Fetch collections once on mount so NoteCards across all pages can show badges
   useEffect(() => {
     if (user) fetchCollections();
-  }, [user]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid]); // fetchCollections is a stable useCallback — omitting intentionally
 
   return (
     <div className="flex h-screen mesh-bg overflow-hidden">

@@ -20,14 +20,16 @@ export default defineConfig({
         orientation: 'portrait-primary',
         icons: [
           {
-            src: 'https://ui-avatars.com/api/?name=SB&background=6C63FF&color=fff&size=192&bold=true&rounded=true',
+            src: '/icon-192.svg',
             sizes: '192x192',
-            type: 'image/png',
+            type: 'image/svg+xml',
+            purpose: 'any maskable',
           },
           {
-            src: 'https://ui-avatars.com/api/?name=SB&background=6C63FF&color=fff&size=512&bold=true&rounded=true',
+            src: '/icon-512.svg',
             sizes: '512x512',
-            type: 'image/png',
+            type: 'image/svg+xml',
+            purpose: 'any maskable',
           },
         ],
       },

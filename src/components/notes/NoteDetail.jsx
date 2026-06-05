@@ -18,12 +18,12 @@ const typeConfig = {
 
 /** True if a token looks like a SECTION HEADING (all-caps, 3+ chars, no digits) */
 const isSectionHeading = (token) =>
-  /^[A-Z][A-Z\s&\/]{2,}$/.test(token.trim()) && token.trim().length >= 3;
+  /^[A-Z][A-Z\s&/]{2,}$/.test(token.trim()) && token.trim().length >= 3;
 
 /** True if the word looks like a sub-heading date range or location line */
 const isMetaLine = (line) =>
   /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b.*\d{4}/.test(line) ||
-  /\b\d{4}\s*[–\-]\s*(Present|\d{4})\b/.test(line);
+  /\b\d{4}\s*[–-]\s*(Present|\d{4})\b/.test(line);
 
 /** Split raw PDF blob into logical lines by detecting common delimiters */
 function tokenizeContent(raw) {
@@ -73,10 +73,10 @@ function classifyLine(line) {
   if (!trimmed) return { type: 'empty' };
 
   // Bullet variations
-  if (/^[►•▪▸\-\*]\s+/.test(trimmed)) return { type: 'bullet', text: trimmed.replace(/^[►•▪▸\-\*]\s+/, '') };
+  if (/^[►•▪▸*-]\s+/.test(trimmed)) return { type: 'bullet', text: trimmed.replace(/^[►•▪▸*-]\s+/, '') };
 
   // Numbered list
-  if (/^\d+[\.\)]\s+/.test(trimmed)) return { type: 'numbered', text: trimmed.replace(/^\d+[\.\)]\s+/, '') };
+  if (/^\d+[.)]\s+/.test(trimmed)) return { type: 'numbered', text: trimmed.replace(/^\d+[.)]\s+/, '') };
 
   // Pure section heading (all caps, short-ish)
   if (isSectionHeading(trimmed) && trimmed.length < 60) return { type: 'heading', text: trimmed };
@@ -86,8 +86,8 @@ function classifyLine(line) {
 
   // Contact-style line (email | phone | linkedin)
   if (
-    /[\|│]/.test(trimmed) &&
-    (trimmed.includes('@') || /\+?\d[\d\s\-]{8,}/.test(trimmed) || /linkedin\.com/.test(trimmed))
+    /[|│]/.test(trimmed) &&
+    (trimmed.includes('@') || /\+?\d[\d\s-]{8,}/.test(trimmed) || /linkedin\.com/.test(trimmed))
   ) return { type: 'contact', text: trimmed };
 
   // Inline bold markers
@@ -114,13 +114,13 @@ function inlineFormat(text) {
 
 /** Parse pipe-separated contact info into chips */
 function ContactLine({ text }) {
-  const parts = text.split(/[\|│]/).map(p => p.trim()).filter(Boolean);
+  const parts = text.split(/[|│]/).map(p => p.trim()).filter(Boolean);
   return (
     <div className="flex flex-wrap gap-2 my-3">
       {parts.map((part, i) => {
         let icon = null;
         if (part.includes('@')) icon = <Mail className="w-3 h-3" />;
-        else if (/\+?\d[\d\s\-]{6,}/.test(part)) icon = <Phone className="w-3 h-3" />;
+        else if (/\+?\d[\d\s-]{6,}/.test(part)) icon = <Phone className="w-3 h-3" />;
         else if (/linkedin\.com|github\.com|portfolio/i.test(part)) icon = <Globe className="w-3 h-3" />;
         else if (/[A-Z]{2,}$/.test(part) || /Chennai|Mumbai|Delhi|Bangalore/i.test(part)) icon = <MapPin className="w-3 h-3" />;
 

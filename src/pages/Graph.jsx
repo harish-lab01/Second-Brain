@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useNotes } from '../hooks/useNotes';
 import KnowledgeGraph from '../components/graph/KnowledgeGraph';
@@ -6,15 +5,11 @@ import { GitFork, Info } from 'lucide-react';
 
 export default function Graph() {
   const { user } = useAuth();
-  const { notes, loading, fetchNotes } = useNotes(user?.uid);
-
-  useEffect(() => {
-    if (user) fetchNotes();
-  }, [user]);
+  // useNotes auto-subscribes on mount — no manual fetchNotes needed
+  const { notes, loading } = useNotes(user?.uid);
 
   return (
     <div className="space-y-4 animate-fade-in" style={{ height: 'calc(100vh - 10rem)' }}>
-      {/* Header */}
       <div className="flex items-center justify-between flex-shrink-0">
         <div>
           <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
@@ -31,7 +26,6 @@ export default function Graph() {
         </div>
       </div>
 
-      {/* Graph canvas */}
       <div className="flex-1" style={{ height: '100%' }}>
         {loading ? (
           <div className="h-full rounded-2xl border border-white/[0.07] bg-surface-50/40 flex items-center justify-center">

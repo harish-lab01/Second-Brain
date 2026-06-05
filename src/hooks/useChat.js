@@ -1,8 +1,14 @@
 import { useState, useCallback, useRef } from 'react';
 import { chatWithNotes } from '../services/gemini';
-import { saveChat, getUserChats } from '../services/firestore';
+import { saveChat, getUserChats, deleteChat } from '../services/firestore';
 import { hybridSearch, isSemanticSearchAvailable } from '../services/embeddings';
+import { checkLimit, consumeLimit, remainingCalls } from './useRateLimit';
 import useStore from '../store/useStore';
+
+// 40 chat messages per hour per user
+const CHAT_LIMIT  = 40;
+const CHAT_WINDOW = 60 * 60 * 1000; // 1 hour
+const CHAT_KEY    = 'chat';
 
 export function useChat(userId) {
   const { notes } = useStore();
@@ -23,6 +29,21 @@ export function useChat(userId) {
       setError(err.message);
     }
   }, [userId]);
+
+  const removeChatFromHistory = useCallback(async (chatId) => {
+    try {
+      await deleteChat(chatId);
+      setChatHistory(prev => prev.filter(c => c.id !== chatId));
+      // If it was the active chat, start fresh
+      if (currentChatIdRef.current === chatId) {
+        currentChatIdRef.current = null;
+        setMessages([]);
+      }
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  }, []);
 
   const loadChat = useCallback((chat) => {
     currentChatIdRef.current = chat.id;
@@ -81,6 +102,18 @@ export function useChat(userId) {
   }, [notes]);
 
   const sendMessage = useCallback(async (userMessage) => {
+    // ── Rate limit check ────────────────────────────────────────────────────
+    if (!checkLimit(CHAT_KEY, CHAT_LIMIT, CHAT_WINDOW)) {
+      const rem = remainingCalls(CHAT_KEY, CHAT_LIMIT, CHAT_WINDOW);
+      const errMsg = {
+        role: 'assistant',
+        content: `⏱ You've sent ${CHAT_LIMIT} messages this hour. Please wait a bit before sending more. (${rem} remaining)`,
+        timestamp: new Date().toISOString(),
+      };
+      setMessages(prev => [...prev, { role: 'user', content: userMessage, timestamp: new Date().toISOString() }, errMsg]);
+      return;
+    }
+    consumeLimit(CHAT_KEY, CHAT_WINDOW);
     const userMsg = { role: 'user', content: userMessage, timestamp: new Date().toISOString() };
     const updatedMessages = [...messages, userMsg];
     setMessages(updatedMessages);
@@ -126,6 +159,7 @@ export function useChat(userId) {
     fetchChats,
     loadChat,
     startNewChat,
+    removeChatFromHistory,
     currentChatId: currentChatIdRef.current,
   };
 }

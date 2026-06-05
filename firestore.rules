@@ -1,0 +1,41 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // NOTES
+    // - Authenticated owner can read/write their own notes
+    // - Anyone can read a note where isPublic == true (for share links)
+    match /notes/{noteId} {
+      allow read:  if request.auth != null && resource.data.userId == request.auth.uid;
+      allow read:  if resource.data.isPublic == true;
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if request.auth != null
+                             && resource.data.userId == request.auth.uid;
+    }
+
+    // CHATS — owner only
+    match /chats/{chatId} {
+      allow read, write: if request.auth != null
+                         && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+    }
+
+    // REVIEWS — owner only
+    match /reviews/{reviewId} {
+      allow read, write: if request.auth != null
+                         && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+    }
+
+    // COLLECTIONS — owner only
+    match /collections/{colId} {
+      allow read, write: if request.auth != null
+                         && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+    }
+  }
+}

@@ -7,7 +7,7 @@ import NoteDetail from '../components/notes/NoteDetail';
 import EditNoteModal from '../components/notes/EditNoteModal';
 import useStore from '../store/useStore';
 import { publishNote, unpublishNote } from '../services/firestore';
-import { Loader2, FolderOpen, X, Check } from 'lucide-react';
+import { Loader2, X, Check } from 'lucide-react';
 
 // ── Collection picker dropdown ────────────────────────────────────────────────
 function CollectionPicker({ note, collections, onAssign, onClose }) {
@@ -79,8 +79,11 @@ export default function NoteDetailPage() {
   const [sharingLoading, setSharingLoading] = useState(false);
 
   useEffect(() => {
+    // notes.length === 0 guard: if navigated directly to this URL,
+    // the subscription may not have fired yet — fetchNotes triggers it
     if (user && notes.length === 0) fetchNotes();
-  }, [user]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid]);
 
   useEffect(() => {
     if (notes.length > 0) {
@@ -118,7 +121,7 @@ export default function NoteDetailPage() {
         await navigator.clipboard.writeText(shareUrl).catch(() => {});
         showToast('Note published! Link copied to clipboard.');
       }
-      await fetchNotes();
+      await fetchNotes(); // re-trigger subscription after publish toggle — onSnapshot will catch the isPublic change
     } catch (err) {
       showToast('Failed to update sharing: ' + err.message, 'error');
     } finally {
@@ -168,7 +171,7 @@ export default function NoteDetailPage() {
         <EditNoteModal
           note={note}
           userId={user?.uid}
-          onClose={() => { setShowEdit(false); fetchNotes(); }}
+          onClose={() => setShowEdit(false)}
         />
       )}
 

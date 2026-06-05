@@ -17,10 +17,10 @@ export default function Login() {
   };
 
   const features = [
-    { icon: BookOpen,      text: 'Save notes, PDFs, and URLs in one place',      color: 'text-blue-400',   bg: 'bg-blue-500/10',   border: 'border-blue-500/20' },
-    { icon: Sparkles,      text: 'AI auto-tags and summarizes everything',        color: 'text-primary-300', bg: 'bg-primary/10',    border: 'border-primary/20'  },
-    { icon: MessageSquare, text: 'Chat with your knowledge using Gemini',         color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20' },
-    { icon: Shield,        text: 'Private, secure, synced with your Google account', color: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/20' },
+    { icon: BookOpen,      text: 'Save notes, PDFs, and URLs in one place',          color: 'text-blue-400',    bg: 'bg-blue-500/10',    border: 'border-blue-500/20'    },
+    { icon: Sparkles,      text: 'AI auto-tags, summarizes, and finds connections',   color: 'text-primary-300', bg: 'bg-primary/10',     border: 'border-primary/20'     },
+    { icon: MessageSquare, text: 'Chat with your knowledge using Groq AI',            color: 'text-purple-400',  bg: 'bg-purple-500/10',  border: 'border-purple-500/20'  },
+    { icon: Shield,        text: 'Private, secure, synced with your Google account',  color: 'text-green-400',   bg: 'bg-green-500/10',   border: 'border-green-500/20'   },
   ];
 
   return (
@@ -89,7 +89,7 @@ export default function Login() {
             </button>
 
             <p className="text-[11px] text-slate-600 text-center mt-5">
-              Free to use · Powered by Firebase &amp; Google Gemini
+              Free to use · Powered by Firebase &amp; Groq AI
             </p>
           </div>
         </div>

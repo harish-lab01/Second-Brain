@@ -15,10 +15,10 @@ function renderMarkdown(text) {
       continue;
     }
 
-    if (/^[\-\•\*]\s/.test(line.trim())) {
+    if (/^[-•*]\s/.test(line.trim())) {
       const bulletLines = [];
-      while (i < lines.length && /^[\-\•\*]\s/.test(lines[i].trim())) {
-        bulletLines.push(lines[i].trim().replace(/^[\-\•\*]\s/, ''));
+      while (i < lines.length && /^[-•*]\s/.test(lines[i].trim())) {
+        bulletLines.push(lines[i].trim().replace(/^[-•*]\s/, ''));
         i++;
       }
       elements.push(

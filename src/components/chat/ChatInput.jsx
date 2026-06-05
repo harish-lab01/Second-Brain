@@ -14,11 +14,11 @@ export default function ChatInput({ onSend, loading }) {
     },
   });
 
-  // When voice stops and there's content, don't auto-send — let the user review
-  // But show a visual hint that transcript was captured
+  // When voice stops, clear the interim transcript display
   useEffect(() => {
     if (!listening && transcript) reset();
-  }, [listening]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listening]); // reset and transcript are stable — only re-run when listening changes
 
   const handleSubmit = (e) => {
     e.preventDefault();

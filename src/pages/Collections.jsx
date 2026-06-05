@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   FolderOpen, Plus, Trash2, Edit3, X, Check,
-  FileText, Loader2, ArrowRight, Sparkles
+  FileText, Loader2, Sparkles
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useCollections } from '../hooks/useCollections';
@@ -136,19 +135,19 @@ function CollectionFormModal({ initial, onSave, onClose }) {
 
 export default function Collections() {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const { collections, loading, fetchCollections, addCollection, editCollection, removeCollection } = useCollections(user?.uid);
-  const { notes, fetchNotes } = useNotes(user?.uid);
+  const { notes } = useNotes(user?.uid); // real-time subscription, no manual fetch needed
   const showToast = useStore(s => s.showToast);
 
-  const [showCreate, setShowCreate]       = useState(false);
-  const [editTarget, setEditTarget]       = useState(null);
-  const [activeId, setActiveId]           = useState(null);
-  const [showAddNote, setShowAddNote]     = useState(false);
+  const [showCreate, setShowCreate]   = useState(false);
+  const [editTarget, setEditTarget]   = useState(null);
+  const [activeId, setActiveId]       = useState(null);
+  const [showAddNote, setShowAddNote] = useState(false);
 
   useEffect(() => {
-    if (user) { fetchCollections(); fetchNotes(); }
-  }, [user, fetchCollections, fetchNotes]);
+    if (user) fetchCollections();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid]);
 
   const handleCreate = async (data) => {
     try {
@@ -358,7 +357,7 @@ export default function Collections() {
         <AddNoteModal
           userId={user?.uid}
           defaultCollection={activeId}
-          onClose={() => { setShowAddNote(false); fetchNotes(); }}
+          onClose={() => setShowAddNote(false)}
         />
       )}
     </div>

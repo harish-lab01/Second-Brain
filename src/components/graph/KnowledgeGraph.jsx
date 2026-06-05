@@ -11,21 +11,19 @@ const TYPE_COLORS = {
 
 function buildGraphData(notes) {
   const nodes = notes.map(note => ({
-    id: note.id,
-    name: note.title,
-    type: note.type || 'text',
-    tags: note.tags || [],
+    id:      note.id,
+    name:    note.title,
+    type:    note.type || 'text',
+    tags:    note.tags || [],
     summary: note.summary || '',
-    val: 2 + Math.min((note.tags?.length || 0) * 0.5, 3), // node size based on tag richness
-    color: TYPE_COLORS[note.type] || TYPE_COLORS.text,
+    val:     2 + Math.min((note.tags?.length || 0) * 0.5, 3),
+    color:   TYPE_COLORS[note.type] || TYPE_COLORS.text,
   }));
 
   const edgeSet = new Set();
-  const links = [];
-
+  const links   = [];
   notes.forEach(note => {
-    if (!note.relatedNoteIds?.length) return;
-    note.relatedNoteIds.forEach(relId => {
+    note.relatedNoteIds?.forEach(relId => {
       const key = [note.id, relId].sort().join('--');
       if (!edgeSet.has(key) && notes.find(n => n.id === relId)) {
         edgeSet.add(key);
@@ -38,19 +36,30 @@ function buildGraphData(notes) {
 }
 
 export default function KnowledgeGraph({ notes }) {
-  const navigate = useNavigate();
-  const fgRef = useRef(null);
+  const navigate   = useNavigate();
+  const fgRef      = useRef(null);
+  const containerRef = useRef(null);
   const [hoveredNode, setHoveredNode] = useState(null);
-  const [graphData, setGraphData] = useState({ nodes: [], links: [] });
+  const [graphData,   setGraphData]   = useState({ nodes: [], links: [] });
+  const [dimensions,  setDimensions]  = useState({ width: 800, height: 600 });
 
+  useEffect(() => { setGraphData(buildGraphData(notes)); }, [notes]);
+
+  // ResizeObserver — keeps the canvas matching its CSS container
   useEffect(() => {
-    setGraphData(buildGraphData(notes));
-  }, [notes]);
+    if (!containerRef.current) return;
+    const ro = new ResizeObserver(entries => {
+      const { width, height } = entries[0].contentRect;
+      setDimensions({ width: Math.floor(width), height: Math.floor(height) });
+    });
+    ro.observe(containerRef.current);
+    // Set initial size
+    const { width, height } = containerRef.current.getBoundingClientRect();
+    setDimensions({ width: Math.floor(width), height: Math.floor(height) });
+    return () => ro.disconnect();
+  }, []);
 
-  const handleNodeClick = useCallback((node) => {
-    navigate(`/notes/${node.id}`);
-  }, [navigate]);
-
+  const handleNodeClick = useCallback((node) => { navigate(`/notes/${node.id}`); }, [navigate]);
   const handleNodeHover = useCallback((node) => {
     setHoveredNode(node || null);
     document.body.style.cursor = node ? 'pointer' : 'default';
@@ -60,45 +69,39 @@ export default function KnowledgeGraph({ notes }) {
   const handleZoomOut = () => fgRef.current?.zoom(0.7, 300);
   const handleFit     = () => fgRef.current?.zoomToFit(400, 40);
 
-  // Custom node renderer
   const paintNode = useCallback((node, ctx, globalScale) => {
-    const label = node.name;
     const fontSize = Math.max(10 / globalScale, 3);
-    const r = node.val * 4;
+    const r        = node.val * 4;
+    const isHover  = hoveredNode?.id === node.id;
 
-    // Glow
-    ctx.shadowBlur = hoveredNode?.id === node.id ? 20 : 6;
+    ctx.shadowBlur  = isHover ? 20 : 6;
     ctx.shadowColor = node.color;
-
-    // Circle
     ctx.beginPath();
     ctx.arc(node.x, node.y, r, 0, 2 * Math.PI, false);
-    ctx.fillStyle = node.color + (hoveredNode?.id === node.id ? 'ff' : 'cc');
+    ctx.fillStyle = node.color + (isHover ? 'ff' : 'cc');
     ctx.fill();
 
-    // Ring for hovered
-    if (hoveredNode?.id === node.id) {
+    if (isHover) {
       ctx.strokeStyle = '#ffffff44';
-      ctx.lineWidth = 1.5 / globalScale;
+      ctx.lineWidth   = 1.5 / globalScale;
       ctx.stroke();
     }
-
     ctx.shadowBlur = 0;
 
-    // Label
     if (globalScale > 0.6) {
-      ctx.font = `${fontSize}px Inter, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#e2e8f0';
-      const maxW = 80 / globalScale;
-      const truncated = label.length > 20 ? label.slice(0, 18) + '…' : label;
+      ctx.font          = `${fontSize}px Inter, sans-serif`;
+      ctx.textAlign     = 'center';
+      ctx.textBaseline  = 'middle';
+      ctx.fillStyle     = '#e2e8f0';
+      const truncated   = node.name.length > 20 ? node.name.slice(0, 18) + '…' : node.name;
       ctx.fillText(truncated, node.x, node.y + r + fontSize * 1.2);
     }
   }, [hoveredNode]);
 
+  const hasConnections = graphData.links.length > 0;
+
   return (
-    <div className="relative w-full h-full rounded-2xl overflow-hidden border border-white/[0.07]"
+    <div ref={containerRef} className="relative w-full h-full rounded-2xl overflow-hidden border border-white/[0.07]"
       style={{ background: 'rgba(10,10,15,0.9)' }}>
 
       {/* Legend */}
@@ -117,21 +120,26 @@ export default function KnowledgeGraph({ notes }) {
 
       {/* Controls */}
       <div className="absolute top-4 right-4 z-10 flex flex-col gap-1.5">
-        {[
-          { icon: ZoomIn,     action: handleZoomIn,  title: 'Zoom in' },
-          { icon: ZoomOut,    action: handleZoomOut, title: 'Zoom out' },
-          { icon: Maximize2,  action: handleFit,     title: 'Fit to screen' },
+        {[{ icon: ZoomIn, action: handleZoomIn, title: 'Zoom in' },
+          { icon: ZoomOut, action: handleZoomOut, title: 'Zoom out' },
+          { icon: Maximize2, action: handleFit, title: 'Fit to screen' },
         ].map(({ icon: Icon, action, title }) => (
-          <button
-            key={title}
-            onClick={action}
-            title={title}
-            className="w-8 h-8 rounded-lg bg-surface-100/90 border border-white/[0.08] flex items-center justify-center text-slate-400 hover:text-slate-200 hover:bg-surface-200 transition-all backdrop-blur-sm"
-          >
+          <button key={title} onClick={action} title={title}
+            className="w-8 h-8 rounded-lg bg-surface-100/90 border border-white/[0.08] flex items-center justify-center text-slate-400 hover:text-slate-200 hover:bg-surface-200 transition-all backdrop-blur-sm">
             <Icon className="w-3.5 h-3.5" />
           </button>
         ))}
       </div>
+
+      {/* No connections hint */}
+      {notes.length > 0 && !hasConnections && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 px-4 py-2.5 rounded-xl bg-surface-100/90 border border-white/[0.08] backdrop-blur-sm text-center pointer-events-none">
+          <p className="text-xs text-slate-500 flex items-center gap-1.5">
+            <Info className="w-3 h-3 flex-shrink-0" />
+            Connections appear automatically as you add more notes with AI analysis
+          </p>
+        </div>
+      )}
 
       {/* Hover tooltip */}
       {hoveredNode && (
@@ -158,14 +166,16 @@ export default function KnowledgeGraph({ notes }) {
       {notes.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center text-center">
           <div>
-            <p className="text-slate-500 text-sm">No notes to visualize yet.</p>
-            <p className="text-slate-600 text-xs mt-1">Add notes with related connections to see the graph.</p>
+            <p className="text-slate-500 text-sm">No notes to visualise yet.</p>
+            <p className="text-slate-600 text-xs mt-1">Add notes with AI analysis to see the graph.</p>
           </div>
         </div>
       )}
 
       <ForceGraph2D
         ref={fgRef}
+        width={dimensions.width}
+        height={dimensions.height}
         graphData={graphData}
         nodeCanvasObject={paintNode}
         nodeCanvasObjectMode={() => 'replace'}

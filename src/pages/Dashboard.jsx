@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, FileUp, Link, Tag, Plus, Loader2, Sparkles, ArrowRight, Brain, TrendingUp, BookOpen, GitFork, FolderOpen } from 'lucide-react';
+import { FileText, FileUp, Link, Tag, Plus, Loader2, ArrowRight, Brain, TrendingUp, BookOpen, GitFork, FolderOpen } from 'lucide-react';
 import StatsCard from '../components/dashboard/StatsCard';
 import NoteCard from '../components/notes/NoteCard';
 import AddNoteModal from '../components/notes/AddNoteModal';
@@ -13,36 +13,36 @@ import { getDueNotes } from '../utils/sm2';
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { notes, loading, fetchNotes } = useNotes(user?.uid);
-  const [showModal, setShowModal]     = useState(false);
-  const [digest, setDigest]           = useState('');
+  const { notes, loading } = useNotes(user?.uid); // real-time — no manual fetchNotes needed
+  const [showModal, setShowModal]         = useState(false);
+  const [digest, setDigest]               = useState('');
+  const [digestWeek, setDigestWeek]       = useState(''); // tracks which week the digest was generated
   const [digestLoading, setDigestLoading] = useState(false);
-  const [dueCount, setDueCount]       = useState(0);
+  const [dueCount, setDueCount]           = useState(0);
   const navigate = useNavigate();
 
+  // Digest — regenerate once per week, not once per session
   useEffect(() => {
-    if (user) fetchNotes();
-  }, [user]);
+    if (!notes.length) return;
+    // Week key: year + ISO week number
+    const now = new Date();
+    const weekKey = `${now.getFullYear()}-W${Math.ceil(now.getDate() / 7)}-${user?.uid}`;
 
-  useEffect(() => {
-    if (notes.length > 0) {
-      // Weekly digest
-      const recentNotes = getRecentNotes(notes, 7).filter(n => n.summary);
-      if (recentNotes.length > 0) {
-        setDigestLoading(true);
-        generateWeeklyDigest(recentNotes)
-          .then(setDigest)
-          .catch(() => setDigest('Could not generate digest.'))
-          .finally(() => setDigestLoading(false));
-      }
-      // Due review count
-      if (user) {
-        getUserReviews(user.uid)
-          .then(logs => setDueCount(getDueNotes(notes, logs).length))
-          .catch(() => {});
-      }
+    const recentNotes = getRecentNotes(notes, 7).filter(n => n.summary);
+    if (recentNotes.length > 0 && weekKey !== digestWeek) {
+      setDigestLoading(true);
+      generateWeeklyDigest(recentNotes)
+        .then(d => { setDigest(d); setDigestWeek(weekKey); })
+        .catch(() => setDigest('Could not generate digest.'))
+        .finally(() => setDigestLoading(false));
     }
-  }, [notes]);
+    if (user) {
+      getUserReviews(user.uid)
+        .then(logs => setDueCount(getDueNotes(notes, logs).length))
+        .catch(() => {});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notes.length, user?.uid]); // digest regeneration is intentionally week-keyed
 
   const allTags    = getAllTags(notes);
   const pdfCount   = notes.filter(n => n.type === 'pdf').length;
@@ -226,7 +226,7 @@ export default function Dashboard() {
       </div>
 
       {showModal && (
-        <AddNoteModal userId={user?.uid} onClose={() => { setShowModal(false); fetchNotes(); }} />
+        <AddNoteModal userId={user?.uid} onClose={() => setShowModal(false)} />
       )}
     </div>
   );

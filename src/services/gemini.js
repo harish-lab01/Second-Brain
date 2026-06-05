@@ -184,7 +184,7 @@ Note content (excerpt): ${note.content?.slice(0, 1000) || ''}`;
 
   try {
     const raw = await callAI(prompt);
-    const cleaned = raw.replace(/\`\`\`json|\`\`\`/g, '').trim();
+    const cleaned = raw.replace(/```json|```/g, '').trim();
     return JSON.parse(cleaned);
   } catch {
     return { question: `What is the main idea of "${note.title}"?`, hint: note.summary || '' };

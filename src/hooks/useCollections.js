@@ -4,8 +4,6 @@ import {
   createCollection,
   updateCollection,
   deleteCollection,
-  addNoteToCollection,
-  removeNoteFromCollection,
 } from '../services/firestore';
 import useStore from '../store/useStore';
 
@@ -64,19 +62,6 @@ export function useCollections(userId) {
     }
   }, [fetchCollections]);
 
-  const assignNote = useCallback(async (noteId, collectionId) => {
-    try {
-      if (collectionId) {
-        await addNoteToCollection(noteId, collectionId);
-      } else {
-        await removeNoteFromCollection(noteId);
-      }
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    }
-  }, []);
-
   return {
     collections,
     loading,
@@ -85,6 +70,5 @@ export function useCollections(userId) {
     addCollection,
     editCollection,
     removeCollection,
-    assignNote,
   };
 }

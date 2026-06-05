@@ -1,8 +1,8 @@
 import { db } from './firebase';
 import {
   collection, addDoc, updateDoc, deleteDoc,
-  doc, query, where, orderBy, getDocs,
-  serverTimestamp, getDoc
+  doc, query, where, orderBy, getDocs, getDoc,
+  serverTimestamp, onSnapshot, limit, startAfter,
 } from 'firebase/firestore';
 
 // NOTES
@@ -26,6 +26,47 @@ export async function deleteNote(noteId) {
   await deleteDoc(doc(db, 'notes', noteId));
 }
 
+/**
+ * Real-time notes subscription with pagination cursor support.
+ *
+ * @param {string}   userId
+ * @param {number}   pageSize      — notes per page
+ * @param {object}   cursorDoc     — Firestore DocumentSnapshot to start after (null = first page)
+ * @param {function} onData(notes, lastDoc, hasMore)  — called on every update
+ * @param {function} onError(err)
+ * @returns unsubscribe function
+ */
+export function subscribeToNotes(userId, pageSize, cursorDoc, onData, onError) {
+  let q = query(
+    collection(db, 'notes'),
+    where('userId', '==', userId),
+    orderBy('createdAt', 'desc'),
+    limit(pageSize + 1),      // fetch one extra to detect hasMore
+  );
+
+  if (cursorDoc) {
+    q = query(
+      collection(db, 'notes'),
+      where('userId', '==', userId),
+      orderBy('createdAt', 'desc'),
+      startAfter(cursorDoc),
+      limit(pageSize + 1),
+    );
+  }
+
+  const unsub = onSnapshot(q, (snap) => {
+    const docs = snap.docs;
+    const hasMore = docs.length > pageSize;
+    const pageDocs = hasMore ? docs.slice(0, pageSize) : docs;
+    const lastDoc  = pageDocs.length > 0 ? pageDocs[pageDocs.length - 1] : null;
+    const data = pageDocs.map(d => ({ id: d.id, ...d.data() }));
+    onData(data, lastDoc, hasMore);
+  }, onError);
+
+  return unsub;
+}
+
+// Keep legacy one-shot fetch for non-reactive contexts (reviews, chats etc.)
 export async function getUserNotes(userId) {
   const q = query(
     collection(db, 'notes'),
@@ -65,6 +106,10 @@ export async function getUserChats(userId) {
   );
   const snap = await getDocs(q);
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export async function deleteChat(chatId) {
+  await deleteDoc(doc(db, 'chats', chatId));
 }
 
 // PUBLIC SHARING

@@ -5,15 +5,15 @@ const useStore = create((set) => ({
   notes: [],
   setNotes: (notes) => set({ notes }),
 
-  // Collections — stored globally so NoteCard can read them without a prop
+  // Collections — globally available so NoteCard can read without prop drilling
   collections: [],
   setCollections: (collections) => set({ collections }),
 
-  // Toast
+  // Toast — single source of truth, NO auto-timeout here.
+  // Toast.jsx handles its own timeout via useEffect to avoid double-timer.
   toast: null,
   showToast: (message, type = 'success') => {
     set({ toast: { message, type, id: Date.now() } });
-    setTimeout(() => set({ toast: null }), 3500);
   },
   clearToast: () => set({ toast: null }),
 
